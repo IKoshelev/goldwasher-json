@@ -2,6 +2,8 @@
 
 lets you refine chunks of JSON data used in your tests by removing all values which don't inflience the result.
 
+`npm install --save-dev goldwasher-json`
+
 ## TL;DR;
 
 ```typescript
