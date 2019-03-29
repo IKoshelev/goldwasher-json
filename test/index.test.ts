@@ -6,7 +6,7 @@ import { goldwash } from './../src/index';
 const delay = (ms: number = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function throwIf(cond: boolean) {
-    if(cond) {
+    if (cond) {
         throw new Error("something wrong");
     }
 }
@@ -18,22 +18,22 @@ describe('goldwasher-json ', () => {
     });
 
     it('throws if data is not an object or array', () => {
-        [undefined, null, true, "", 1, new Date(), ()=>{}]
-            .forEach((i:any) => {
+        [undefined, null, true, "", 1, new Date(), () => { }]
+            .forEach((i: any) => {
                 try {
                     goldwash(i, () => false);
-                } catch ( er ) {
+                } catch (er) {
                     expect(er === undefined).to.equal(false);
                     return;
                 }
                 expect(true).to.equal(false);
-            });       
+            });
     });
 
     it('throws if provided data does not pass test prior to any changes', () => {
         try {
             goldwash({}, () => false);
-        } catch ( er ) {
+        } catch (er) {
             expect(er === undefined).to.equal(false);
             return;
         }
@@ -46,7 +46,7 @@ describe('goldwasher-json ', () => {
             b: '',
             c: true,
             d: undefined,
-            e: [1,2,3],
+            e: [1, 2, 3],
             f: {}
         }
 
@@ -63,13 +63,13 @@ describe('goldwasher-json ', () => {
             b: '',
             c: true,
             d: undefined,
-            e: [1,2,3],
+            e: [1, 2, 3],
             f: {}
         }
 
         let washedData = {
-            a:1,
-            e:[null,2,null]
+            a: 1,
+            e: [null, 2, null]
         }
 
         let fnOfInterest = (d: typeof data) => {
@@ -77,14 +77,63 @@ describe('goldwasher-json ', () => {
         }
 
         let result = goldwash(data, (d) => {
-                        return fnOfInterest(d) === 3;
-                    });
+            return fnOfInterest(d) === 3;
+        });
+
+        expect(JSON.stringify(result)).to.equal(JSON.stringify(washedData));
+    });
+
+    it('during goldwash will go deep', () => {
+        let data = {
+            a: 1,
+            b: '',
+            c: {
+                a: 2,
+                b: {
+                    a: 8,
+                    b: [{ e: 5 }, 
+                        { a: { 
+                            a: 9 } 
+                        }, 
+                        { 
+                            a: 1,
+                            b: 8 
+                        }] as {a:{a:number}}[],
+                    c: 'a'
+                },
+                c: 5
+            },
+            f: {}
+        }
+
+        let washedData = {
+            a: 1,
+            c: {
+                b: {
+                    b: [null,
+                        { 
+                        a: { 
+                            a: 9 
+                            } 
+                        },
+                        null],
+                }
+            }
+        }
+
+        let fnOfInterest = (d: typeof data) => {
+            return d.a + d.c.b.b[1].a.a;
+        }
+
+        let result = goldwash(data, (d) => {
+            return fnOfInterest(d) === 10;
+        });
 
         expect(JSON.stringify(result)).to.equal(JSON.stringify(washedData));
     });
 
     it('for keys that cant be outright deleted, will goldwashing by trying to degrade to simpler values', () => {
-        
+
         let data = {
             a1: 200,
             a2: 300,
@@ -92,29 +141,29 @@ describe('goldwasher-json ', () => {
             b2: 'some string',
             c: true,
             d: undefined,
-            e: [1,2,3],
+            e: [1, 2, 3],
             f: {}
         }
 
         let washedData = {
-            a1:200,
-            a2:0,
-            b2:" ",
-            e:[null,2,null]
+            a1: 200,
+            a2: 0,
+            b2: " ",
+            e: [null, 2, null]
         }
 
         let fnOfInterest = (d: typeof data) => {
             // conditions don't influence calculation, but keys need to be present
-            throwIf('a1' in d === false );
+            throwIf('a1' in d === false);
             throwIf(typeof d.a2 !== 'number');
-            throwIf('b1' in d === false );
+            throwIf('b1' in d === false);
             throwIf(d.b2.length === 0);
             return d.a1 + d.e[1];
         }
 
         let result = goldwash(data, (d) => {
-                        return fnOfInterest(d) === 202;
-                    });
+            return fnOfInterest(d) === 202;
+        });
 
         expect(JSON.stringify(result)).to.equal(JSON.stringify(washedData));
     });

@@ -25,9 +25,6 @@ export function goldwash<T extends object>(initial:T, testFn: testFn<T>): T {
 }
 
 function getKeys(val: any): string[]{
-    // if(_.isArray(val)) {
-    //     return 
-    // }
     return _(val).keys().value();
 }
 
@@ -57,7 +54,7 @@ function pruneKeys<TRoot extends object>(
         currentBranch[key] = val;
     }
 
-    let surviverKeys =  getKeys(root);
+    let surviverKeys =  getKeys(currentBranch);
 
     for (let key of surviverKeys) {
         let surviverValue =  currentBranch[key];
@@ -74,7 +71,6 @@ let degradationsByType: {[key: string]:any[] } = {
     null: [],
     undefined: []
 }
-
 
 function degradePrimitiveValues<TRoot extends object>(
                                     root:TRoot, 
@@ -109,7 +105,7 @@ function degradePrimitiveValues<TRoot extends object>(
         }
     }
 
-    let surviverKeys = getKeys(root);
+    let surviverKeys = getKeys(currentBranch);
 
     for (let key of surviverKeys) { 
         let surviverValue =  currentBranch[key];
