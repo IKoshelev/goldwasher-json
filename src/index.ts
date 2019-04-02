@@ -4,7 +4,7 @@ type testFn<T> = (current: T) => boolean;
 
 type testFnAsync<T> = (current: T) => Promise<boolean>;
 
-export function goldwash<T extends object>(initial: T, testFn: testFn<T>): T {
+export function goldwash<T extends object>(initial: T, testFn: testFn<T>): Partial<T> {
 
     throwIfNotObject<T>(initial);
 
@@ -16,14 +16,14 @@ export function goldwash<T extends object>(initial: T, testFn: testFn<T>): T {
         throwInitialTestNotPassing();
     }
 
-    pruneKeys(data, data, testFn);
+    pruneKeys(data, data, (currentData) => currentData, testFn);
 
-    degradePrimitiveValues(data, data, testFn);
+    degradePrimitiveValues(data, data, (currentData) => currentData, testFn);
 
     return data;
 }
 
-export async function goldwashAsync<T extends object>(initial: T, testFn: testFnAsync<T>): Promise<T> {
+export async function goldwashAsync<T extends object>(initial: T, testFn: testFnAsync<T>): Promise<Partial<T>> {
 
     throwIfNotObject<T>(initial);
 
@@ -35,11 +35,60 @@ export async function goldwashAsync<T extends object>(initial: T, testFn: testFn
         throwInitialTestNotPassing();
     }
 
-    await pruneKeysAsync(data, data, testFn);
+    await pruneKeysAsync(data, data, (currentData) => currentData, testFn);
 
-    await degradePrimitiveValuesAsync(data, data, testFn);
+    await degradePrimitiveValuesAsync(data, data, (currentData) => currentData, testFn);
 
     return data;
+}
+
+export function centrifuge<T extends object>(initial: T, testFn: testFn<T>): [T, Partial<T>] {
+
+    throwIfNotObject<T>(initial);
+
+    const data = _.cloneDeep(initial);
+
+    const initialTest = testFn(data);
+
+    if (!initialTest) {
+        throwInitialTestNotPassing();
+    }
+
+    let base = getCloneWithPrimitiveValuesSetToDefaults(data);
+
+    let mergeCurrentDataIntoBase = (currentData: T) => {
+        return _.merge({}, base, currentData);
+    }
+
+    pruneKeys(data, data, mergeCurrentDataIntoBase, testFn);
+    degradePrimitiveValues(data, data, mergeCurrentDataIntoBase, testFn);
+
+    return [base, data];
+}
+
+export async function centrifugeAsync<T extends object>(initial: T, testFn: testFnAsync<T>): Promise<[T, Partial<T>]> {
+
+    throwIfNotObject<T>(initial);
+
+    const data = _.cloneDeep(initial);
+
+    const initialTest = await testFn(data);
+
+    if (!initialTest) {
+        throwInitialTestNotPassing();
+    }
+
+    let base = getCloneWithPrimitiveValuesSetToDefaults(data);
+
+    let mergeCurrentDataIntoBase = (currentData: T) => {
+        return _.merge({}, base, currentData);
+    }
+
+    await pruneKeysAsync(data, data, mergeCurrentDataIntoBase, testFn);
+
+    await degradePrimitiveValuesAsync(data, data, mergeCurrentDataIntoBase, testFn);
+
+    return [base, data];
 }
 
 function throwInitialTestNotPassing() {
@@ -48,7 +97,7 @@ function throwInitialTestNotPassing() {
 }
 
 function throwIfNotObject<T extends object>(initial: T) {
-    if (!initial 
+    if (!initial
         || typeof initial != 'object'
         || _.isDate(initial)
         || _.isRegExp(initial)) {
@@ -63,6 +112,7 @@ function getKeys(val: any): string[] {
 function pruneKeys<TRoot extends object>(
     root: TRoot,
     currentBranch: any,
+    pretestTransformtaion: (currentData: TRoot) => TRoot,
     testFn: testFn<TRoot>) {
 
     let keys = getKeys(currentBranch);
@@ -74,7 +124,8 @@ function pruneKeys<TRoot extends object>(
 
         try {
             delete currentBranch[key];
-            res = testFn(root);
+            let transfomedData = pretestTransformtaion(root);
+            res = testFn(transfomedData);
         } catch (er) {
             res = false;
         }
@@ -86,21 +137,46 @@ function pruneKeys<TRoot extends object>(
         currentBranch[key] = val;
     }
 
+    if(_.isArray(currentBranch)) {
+
+        while (!_(currentBranch).last()) {
+            let res = false;
+            let val =_(currentBranch).last();
+            if (val !== null && val !== undefined) {
+                break;
+            }
+
+            try {
+                val = currentBranch.pop();
+                let transfomedData = pretestTransformtaion(root);
+                res = testFn(transfomedData);
+            } catch (er) {
+                res = false;
+            }
+
+            if (res !== true) {
+                currentBranch.push(val);
+                break;
+            }
+        }
+    }
+
     let surviverKeys = getKeys(currentBranch);
 
     for (let key of surviverKeys) {
         let surviverValue = currentBranch[key];
         if (_.isObjectLike(surviverValue)) {
-            pruneKeys(root, surviverValue, testFn);
+            pruneKeys(root, surviverValue, pretestTransformtaion, testFn);
         }
     }
 }
 
 
 async function pruneKeysAsync<TRoot extends object>(
-                                        root: TRoot,
-                                        currentBranch: any,
-                                        testFn: testFnAsync<TRoot>) {
+    root: TRoot,
+    currentBranch: any,
+    pretestTransformtaion: (currentData: TRoot) => TRoot,
+    testFn: testFnAsync<TRoot>) {
 
     let keys = getKeys(currentBranch);
 
@@ -111,7 +187,8 @@ async function pruneKeysAsync<TRoot extends object>(
 
         try {
             delete currentBranch[key];
-            res = await testFn(root);
+            let transfomedData = pretestTransformtaion(root);
+            res = await testFn(transfomedData);
         } catch (er) {
             res = false;
         }
@@ -123,12 +200,36 @@ async function pruneKeysAsync<TRoot extends object>(
         currentBranch[key] = val;
     }
 
+    if(_.isArray(currentBranch)) {
+
+        while (!_(currentBranch).last()) {
+            let res = false;
+            let val =_(currentBranch).last();
+            if (val !== null && val !== undefined) {
+                break;
+            }
+
+            try {
+                val = currentBranch.pop();
+                let transfomedData = pretestTransformtaion(root);
+                res = await testFn(transfomedData);
+            } catch (er) {
+                res = false;
+            }
+
+            if (res !== true) {
+                currentBranch.push(val);
+                break;
+            }
+        }
+    }
+
     let surviverKeys = getKeys(currentBranch);
 
     for (let key of surviverKeys) {
         let surviverValue = currentBranch[key];
         if (_.isObjectLike(surviverValue)) {
-            await pruneKeysAsync(root, surviverValue, testFn);
+            await pruneKeysAsync(root, surviverValue, pretestTransformtaion, testFn);
         }
     }
 }
@@ -144,6 +245,7 @@ let degradationsByType: { [key: string]: any[] } = {
 function degradePrimitiveValues<TRoot extends object>(
     root: TRoot,
     currentBranch: any,
+    pretestTransformtaion: (currentData: TRoot) => TRoot,
     testFn: testFn<TRoot>) {
 
     let keys = getKeys(currentBranch);
@@ -160,7 +262,8 @@ function degradePrimitiveValues<TRoot extends object>(
             let res = false;
             try {
                 currentBranch[key] = degradedValue;
-                res = testFn(root);
+                let transfomedData = pretestTransformtaion(root);
+                res = testFn(transfomedData);
             } catch (er) {
                 res = false;
             }
@@ -179,7 +282,7 @@ function degradePrimitiveValues<TRoot extends object>(
     for (let key of surviverKeys) {
         let surviverValue = currentBranch[key];
         if (_.isObjectLike(surviverValue)) {
-            degradePrimitiveValues(root, surviverValue, testFn);
+            degradePrimitiveValues(root, surviverValue, pretestTransformtaion, testFn);
         }
     }
 }
@@ -187,6 +290,7 @@ function degradePrimitiveValues<TRoot extends object>(
 async function degradePrimitiveValuesAsync<TRoot extends object>(
     root: TRoot,
     currentBranch: any,
+    pretestTransformtaion: (currentData: TRoot) => TRoot,
     testFn: testFnAsync<TRoot>) {
 
     let keys = getKeys(currentBranch);
@@ -203,7 +307,8 @@ async function degradePrimitiveValuesAsync<TRoot extends object>(
             let res = false;
             try {
                 currentBranch[key] = degradedValue;
-                res = await testFn(root);
+                let transfomedData = pretestTransformtaion(root);
+                res = await testFn(transfomedData);
             } catch (er) {
                 res = false;
             }
@@ -222,7 +327,40 @@ async function degradePrimitiveValuesAsync<TRoot extends object>(
     for (let key of surviverKeys) {
         let surviverValue = currentBranch[key];
         if (_.isObjectLike(surviverValue)) {
-            await degradePrimitiveValuesAsync(root, surviverValue, testFn);
+            await degradePrimitiveValuesAsync(root, surviverValue, pretestTransformtaion, testFn);
+        }
+    }
+}
+
+
+let defaultValuesByType: { [key: string]: any } = {
+    boolean: false,
+    number: 0,
+    string: ""
+}
+
+function getCloneWithPrimitiveValuesSetToDefaults<TRoot extends object>(root: TRoot) {
+    let clone = _.cloneDeep(root);
+    setPrimitiveValuesToDefaults(clone, clone);
+    return clone;
+}
+
+function setPrimitiveValuesToDefaults<TRoot extends object>(
+    root: TRoot,
+    currentBranch: any) {
+
+    let keys = getKeys(currentBranch);
+
+    for (let key of keys) {
+
+        let val = currentBranch[key];
+        let typeofVal = typeof val;
+        currentBranch[key] = typeofVal in defaultValuesByType
+            ? defaultValuesByType[typeofVal]
+            : val;
+
+        if (_.isObjectLike(val)) {
+            setPrimitiveValuesToDefaults(root, val);
         }
     }
 }

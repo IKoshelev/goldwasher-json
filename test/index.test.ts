@@ -1,7 +1,7 @@
 import * as mocha from 'mocha';
 import { expect } from 'chai';
 
-import { goldwash, goldwashAsync } from './../src/index';
+import { goldwash, goldwashAsync, centrifuge, centrifugeAsync } from './../src/index';
 
 const delay = (ms: number = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -73,7 +73,7 @@ describe('goldwasher-json ', () => {
 
             let washedData = {
                 a: 1,
-                e: [null, 2, null]
+                e: [null, 2]
             }
 
             let fnOfInterest = (d: typeof data) => {
@@ -121,8 +121,7 @@ describe('goldwasher-json ', () => {
                                 a: {
                                     a: 9
                                 }
-                            },
-                            null],
+                            }],
                     }
                 }
             }
@@ -155,7 +154,7 @@ describe('goldwasher-json ', () => {
                 a1: 200,
                 a2: 0,
                 b2: " ",
-                e: [null, 2, null]
+                e: [null, 2]
             }
 
             let fnOfInterest = (d: typeof data) => {
@@ -235,7 +234,7 @@ describe('goldwasher-json ', () => {
 
             let washedData = {
                 a: 1,
-                e: [null, 2, null]
+                e: [null, 2]
             }
 
             let fnOfInterest = (d: typeof data) => {
@@ -283,8 +282,7 @@ describe('goldwasher-json ', () => {
                                 a: {
                                     a: 9
                                 }
-                            },
-                            null],
+                            }],
                     }
                 }
             }
@@ -300,7 +298,7 @@ describe('goldwasher-json ', () => {
             expect(JSON.stringify(result)).to.equal(JSON.stringify(washedData));
         });
 
-        it('for keys that cant be outright deleted, will goldwas by trying to degrade to simpler values', async () => {
+        it('for keys that cant be outright deleted, will goldwash by trying to degrade to simpler values', async () => {
 
             let data = {
                 a1: 200,
@@ -317,7 +315,7 @@ describe('goldwasher-json ', () => {
                 a1: 200,
                 a2: 0,
                 b2: " ",
-                e: [null, 2, null]
+                e: [null, 2]
             }
 
             let fnOfInterest = (d: typeof data) => {
@@ -334,6 +332,104 @@ describe('goldwasher-json ', () => {
             });
 
             expect(JSON.stringify(result)).to.equal(JSON.stringify(washedData));
+        });
+    });
+
+    describe('centrifuge', () => {
+
+        it('can separate data into base with primitive values set to default and actual test data', () => {
+
+            let data = {
+                a1: 200,
+                a2: 300,
+                b1: 'some string',
+                b2: 'some string',
+                c: true,
+                d: undefined,
+                e: [1, 2, 3],
+                f: {}
+            }
+
+            let centrifugedData = {
+                a1: 200,
+                e: [null, 2]
+            }
+
+            let centrifugedBase = {
+                a1: 0,
+                a2: 0,
+                b1: "",
+                b2: "",
+                c: false,
+                d: undefined,
+                e: [0, 0, 0],
+                f: {}
+            }
+
+            let fnOfInterest = (d: typeof data) => {
+                // conditions don't influence calculation, but keys need to be present
+                throwIf('a1' in d === false);
+                throwIf(typeof d.a2 !== 'number');
+                throwIf('b1' in d === false);
+                throwIf(typeof d.b2 !== 'string');
+                return d.a1 + d.e[1];
+            }
+
+            let [base, result] = centrifuge(data, (d) => {
+                return fnOfInterest(d) === 202;
+            });
+
+            expect(JSON.stringify(result)).to.equal(JSON.stringify(centrifugedData));
+            expect(JSON.stringify(base)).to.equal(JSON.stringify(centrifugedBase));
+        });
+    });
+
+    describe('centrifugeAsync', () => {
+
+        it('can separate data into base with primitive values set to default and actual test data', async () => {
+
+            let data = {
+                a1: 200,
+                a2: 300,
+                b1: 'some string',
+                b2: 'some string',
+                c: true,
+                d: undefined,
+                e: [1, 2, 3],
+                f: {}
+            }
+
+            let centrifugedData = {
+                a1: 200,
+                e: [null, 2]
+            }
+
+            let centrifugedBase = {
+                a1: 0,
+                a2: 0,
+                b1: "",
+                b2: "",
+                c: false,
+                d: undefined,
+                e: [0, 0, 0],
+                f: {}
+            }
+
+            let fnOfInterest = (d: typeof data) => {
+                // conditions don't influence calculation, but keys need to be present
+                throwIf('a1' in d === false);
+                throwIf(typeof d.a2 !== 'number');
+                throwIf('b1' in d === false);
+                throwIf(typeof d.b2 !== 'string');
+                return d.a1 + d.e[1];
+            }
+
+            let [base, result] = await centrifugeAsync(data, (d) => {
+                return Promise.resolve(fnOfInterest(d) === 202);
+            });
+
+            expect(JSON.stringify(result)).to.equal(JSON.stringify(centrifugedData));
+            expect(JSON.stringify(base)).to.equal(JSON.stringify(centrifugedBase));
         });
     });
 

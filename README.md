@@ -1,4 +1,4 @@
-# goldwasher
+# goldwasher-json
 
 lets you refine chunks of JSON data used in your tests by removing all values which don't inflience the result.
 
