@@ -22,7 +22,7 @@ lets you refine chunks of JSON data used in your tests by removing all values wh
         return result.simplePrice === 88.752;
     });
 
-    //and start using it in you r test instead of original full chunk
+    //and start using goldwashed data in your test instead of original full chunk
     console.log(JSON.stringify(goldwashedData));
 });
 ```
