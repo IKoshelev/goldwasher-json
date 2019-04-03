@@ -1,6 +1,6 @@
 {
   "name": "goldwasher-json",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Goldwasher lets you refine chunks of JSON data used in your tests by removing all values which don't inflience the result.",
   "keywords": [
     "data tree-shaking",

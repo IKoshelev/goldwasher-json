@@ -7,16 +7,22 @@ lets you refine chunks of JSON data used in your tests by removing all values wh
 ## TL;DR;
 
 ```typescript
+ // when you have a unit test... 
  it('simplePrice calclculation calculates correctly', () => {
+    
+    // which uses a big chunk of json you took from runtime\newtwork monitoring
+    let bigChunkOfJson = getTestData();
 
-    let goldwashedData = goldwash(bigChunkOfJsonData, (data) => {
+    // you can temporarily add godlwash to the test, to get the minimal subset of data
+    // that still passes the test
+    let goldwashedData = goldwash(bigChunkOfJson, (data) => {
         
-        let result = blackboxRateCalulationFunction(data);
+        let result = blackboxRateCalulationFunction(data); // orifinally used bigChunkOfJson
 
         return result.simplePrice === 88.752;
     });
 
-    //goldwashedData data has minimal set of properties that still produce desired result
+    //and start using it in you r test instead of original full chunk
     console.log(JSON.stringify(goldwashedData));
 });
 ```
